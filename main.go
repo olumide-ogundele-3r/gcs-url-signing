@@ -75,7 +75,7 @@ func generateSignedURL(serviceAccount, bucketName, resourcePath, httpMethod  str
 	// Canonical Query string
 	var parameterKeys []string
 
-	queryParameters["X-Goog-Algorithm"] = "GOOG4-RSA-SHA256"
+	queryParameters["X-Goog-Algorithm"] = "GOOG4-HMAC-SHA256"
 	queryParameters["X-Goog-Credential"] = credential
 	queryParameters["X-Goog-Date"] = requestTimestamp
 	queryParameters["X-Goog-Expires"] = strconv.Itoa(expiration)
