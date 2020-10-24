@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"io/ioutil"
 	"net/url"
@@ -14,6 +15,7 @@ import (
 
 const (
 	maximumExpiration = 604800
+	xGoogleAlgorithm = "GOOG4-HMAC-SHA256"
 )
 
 func generateSignedURL(serviceAccount, bucketName, resourcePath, httpMethod  string, expiration int, queryParameters,
@@ -29,6 +31,7 @@ func generateSignedURL(serviceAccount, bucketName, resourcePath, httpMethod  str
 	currentTime := time.Now().UTC()
 	requestTimestamp := currentTime.Format(time.RFC3339)
 	year, month, day := currentTime.Date()
+	// TODO: reformat the data as YYYYMMDD i.e 20200502
 	datestamp := fmt.Sprintf("%d%d%d", year, month, day)
 
 	jsonKey, err := ioutil.ReadFile(serviceAccount)
@@ -42,8 +45,8 @@ func generateSignedURL(serviceAccount, bucketName, resourcePath, httpMethod  str
 	}
 
 	email := googleCredentials.Email
-	scope := fmt.Sprintf("%s/auto/storage/goog4_request", datestamp)
-	credential :=  fmt.Sprintf("%s/%s", email, scope)
+	credentialScope := fmt.Sprintf("%s/auto/storage/goog4_request", datestamp)
+	credential :=  fmt.Sprintf("%s/%s", email, credentialScope)
 
 	host :=  fmt.Sprintf("%s.storage.googleapis.com", bucketName)
 	headers["host"] = host
@@ -75,7 +78,7 @@ func generateSignedURL(serviceAccount, bucketName, resourcePath, httpMethod  str
 	// Canonical Query string
 	var parameterKeys []string
 
-	queryParameters["X-Goog-Algorithm"] = "GOOG4-HMAC-SHA256"
+	queryParameters["X-Goog-Algorithm"] = xGoogleAlgorithm
 	queryParameters["X-Goog-Credential"] = credential
 	queryParameters["X-Goog-Date"] = requestTimestamp
 	queryParameters["X-Goog-Expires"] = strconv.Itoa(expiration)
@@ -109,8 +112,15 @@ func generateSignedURL(serviceAccount, bucketName, resourcePath, httpMethod  str
 	canonicalRequest := fmt.Sprintf("%s\n%s\n%s\n%s\n%s\n%s", httpMethod, canonicalURI, canonicalQueryString,
 		canonicalHeaders, signedHeaders, "UNSIGNED-PAYLOAD")
 
-	// Construct the string-to-sign
+	// Construct the string-to-sign:
+	// create an hash, should it be HMAC, need signing key?
+	// decided to create a SHA256 hash
+	h := sha256.New()
+	h.Write([]byte(canonicalRequest))
+	canonicalRequestHash := fmt.Sprintf("%x", h.Sum(nil))
 
+	stringTosign :=  fmt.Sprintf("%s\n%s\n%s\n%s", xGoogleAlgorithm, requestTimestamp,
+		credentialScope, canonicalRequestHash)
 
 	return "", nil
 }
